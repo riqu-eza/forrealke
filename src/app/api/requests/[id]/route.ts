@@ -1,18 +1,25 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import CustomerRequest from "@/models/CustomerRequest";
 import { generateQuote } from "@/lib/automation";
 
+/**
+ * NOTE:
+ * - Use NextRequest for the first arg.
+ * - context.params should be awaited: const { id } = await context.params;
+ * - Keep signatures consistent across GET/PUT/PATCH/DELETE.
+ */
+
 // GET single request
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   await connectDB();
   try {
-    const request = await CustomerRequest.findById(params.id);
+    const { id } = await context.params;
+    const request = await CustomerRequest.findById(id);
     if (!request) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -22,105 +29,84 @@ export async function GET(
   }
 }
 
-// UPDATE (PUT → full replace)
+// PUT (full replace)
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   await connectDB();
   try {
+    const { id } = await context.params;
     const body = await req.json();
-    const updatedRequest = await CustomerRequest.findByIdAndUpdate(
-      params.id,
-      body,
-      {
-        new: true,
-      }
-    );
+
+    const updatedRequest = await CustomerRequest.findByIdAndUpdate(id, body, {
+      new: true,
+      runValidators: true,
+    });
+
     if (!updatedRequest) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
+
     return NextResponse.json(updatedRequest, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// ✅ PARTIAL UPDATE (PATCH → merge fields)
+// PATCH (partial update)
 export async function PATCH(
-  req: Request,
-  context: { params: Promise<{ id: string }> } // params is a Promise in App Router
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
-  console.log("➡️ PATCH /api/requests called");
   await connectDB();
-  console.log("✅ DB connected");
 
   try {
-    // IMPORTANT: await params (Next.js App Router requirement)
     const { id } = await context.params;
-    console.log("🆔 Request ID from params:", id);
-
     const body = await req.json();
-    console.log("📦 Request body:", JSON.stringify(body));
 
-    // Update the request
+    // Partial update
     const updatedRequest = await CustomerRequest.findByIdAndUpdate(
       id,
-      { $set: body }, // only update provided fields
-      { new: true }
+      { $set: body },
+      { new: true, runValidators: true }
     );
 
-    console.log("🔄 UpdatedRequest result:", !!updatedRequest);
-
     if (!updatedRequest) {
-      console.warn("⚠️ No request found with ID:", id);
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    // If the incoming update set status to "quoted" -> generate quote
+    // If someone sets status to "quoted", optionally call generateQuote
     if (body.status === "quoted") {
-      console.log("💡 Status is quoted, attempting to generate quote...");
-
       try {
-        // Pass the request _id (ensure you use the actual field)
-        const quoteResult = await generateQuote(updatedRequest._id.toString());
-        console.log("✅ generateQuote returned:", quoteResult);
-        // reload the request to include saved quote (if generateQuote mutates DB)
-        await updatedRequest.reload?.(); // mongoose docs: doc.reload exists on queries; if not, refetch
+        await generateQuote(updatedRequest._id.toString());
+        // re-fetch fresh doc in case generateQuote updated DB
       } catch (err) {
-        // log error but do not fail the entire PATCH
-        console.error("❌ Error generating quote:", err);
+        console.error("Error generating quote:", err);
       }
     }
 
-    console.log("✅ PATCH finished, returning updated request");
-    // Return the fresh document (refetch to ensure latest quote if generateQuote updated it)
     const fresh = await CustomerRequest.findById(id);
     return NextResponse.json(fresh, { status: 200 });
   } catch (error: any) {
-    console.error("🔥 PATCH error caught:", error);
+    console.error("PATCH error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-
-
-
 // DELETE
 export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   await connectDB();
   try {
-    const deletedRequest = await CustomerRequest.findByIdAndDelete(params.id);
+    const { id } = await context.params;
+    const deletedRequest = await CustomerRequest.findByIdAndDelete(id);
     if (!deletedRequest) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    return NextResponse.json(
-      { message: "Deleted successfully" },
-      { status: 200 }
-    );
+    return NextResponse.json({ message: "Deleted successfully" }, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

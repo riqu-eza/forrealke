@@ -28,14 +28,15 @@ export interface ICustomerRequest extends Document {
     amount: number;
     method: "mpesa" | "card" | "cash";
     paidAt: Date;
+    currency: string;
   };
-  inspectionNotes:string;
-  partsUsed:{
+  inspectionNotes: string;
+  partsUsed: {
     partId: string | mongoose.Types.ObjectId;
     quantity: number;
   };
   laborHours: number;
-  photos : number;
+  photos: number;
   completedAt: Date;
   history: {
     action: string;
@@ -89,6 +90,7 @@ const CustomerRequestSchema = new Schema<ICustomerRequest>(
       amount: Number,
       method: { type: String, enum: ["mpesa", "card", "cash"] },
       paidAt: Date,
+      currency: { type: String, default: "KES" },
     },
     history: [
       {
