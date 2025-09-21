@@ -1,117 +1,108 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // models/CustomerRequest.ts
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface ICustomerRequest extends Document {
+  createdAt: string;
   customerId: mongoose.Types.ObjectId;
-  serviceType: string;
-  description: string;
-  attachments?: string[];
-  assignedTo?: mongoose.Types.ObjectId;
+  yard: {
+    name: string;
+    address: string;
+    location: {
+      type: "Point";
+      coordinates: [number, number]; // [lng, lat]
+    };
+  };
+  timestamps?: Date;
+  carDetails: {
+    make: string;
+    model: string;
+    year: number;
+    regNo: string;
+    type: string; // sedan, suv, heavy etc.
+  };
+  preferredWindow: {
+    start: Date;
+    end: Date;
+  };
+  estimatedDurationMins: number; // default 45-90
   status:
-    | "pending"
-    | "assigned"
+    | "new"
+    | "assigned_pending"
+    | "scheduled"
     | "in_progress"
-    | "quoted"
-    | "approved"
-    | "completed"
+    | "report_submitted"
+    | "pending_payment"
+    | "paid"
+    | "closed"
     | "cancelled";
-  quote?: {
-    amount: number;
-    currency: string;
-    details: string;
-    approved: boolean;
-    approvedAt?: Date;
-  };
-  payment?: {
-    transactionId: string;
-    amount: number;
-    method: "mpesa" | "card" | "cash";
-    paidAt: Date;
-    currency: string;
-  };
-  inspectionNotes: string;
-  partsUsed: {
-    partId: string | mongoose.Types.ObjectId;
-    quantity: number;
-  };
-  laborHours: number;
-  photos: number;
-  completedAt: Date;
-  history: {
-    action: string;
-    by: string | mongoose.Types.ObjectId; // ✅ system OR UserId
-    timestamp: Date;
-    notes?: string;
-  }[];
-  createdAt: Date;
-  updatedAt: Date;
+  assignedTechId?: mongoose.Types.ObjectId;
+  scheduledStart?: Date;
+  scheduledEnd?: Date;
+  travelBufferMins: number;
+  priority: number;
 }
 
 const CustomerRequestSchema = new Schema<ICustomerRequest>(
   {
     customerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    serviceType: { type: String, required: true },
-    description: { type: String, required: true },
-    attachments: [{ type: String }],
-    inspectionNotes: { type: String, default: "" },
-    partsUsed: [
-      {
-        partId: { type: Schema.Types.ObjectId, ref: "Part" },
-        quantity: Number,
+
+    yard: {
+      name: { type: String, required: true },
+      address: { type: String, required: true },
+      location: {
+        type: {
+          type: String,
+          enum: ["Point"],
+          required: true,
+        },
+        coordinates: { type: [Number], required: true }, // [lng, lat]
       },
-    ],
-    laborHours: { type: Number, default: 0 },
-    photos: [{ type: String }], // store image URLs or file paths
-    completedAt: { type: Date },
+    },
+
+    carDetails: {
+      make: { type: String, required: true },
+      model: { type: String, required: true },
+      year: { type: Number, required: true },
+      regNo: { type: String, required: true },
+      type: { type: String, required: true }, // sedan/suv/heavy etc.
+    },
+
+    preferredWindow: {
+      start: { type: Date, required: true },
+      end: { type: Date, required: true },
+    },
+
+    estimatedDurationMins: { type: Number, default: 60 }, // can range 45–90
+
     status: {
       type: String,
       enum: [
-        "pending",
-        "assigned",
+        "new",
+        "assigned_pending",
+        "scheduled",
         "in_progress",
-        "quoted",
-        "approved",
-        "completed",
+        "report_submitted",
+        "pending_payment",
+        "paid",
+        "closed",
         "cancelled",
       ],
-      default: "pending",
+      default: "new",
     },
-    assignedTo: { type: Schema.Types.ObjectId, ref: "User" },
-    quote: {
-      amount: Number,
-      currency: { type: String, default: "KES" },
-      details: String,
-      approved: { type: Boolean, default: false },
-      approvedAt: Date,
-    },
-    payment: {
-      transactionId: String,
-      amount: Number,
-      method: { type: String, enum: ["mpesa", "card", "cash"] },
-      paidAt: Date,
-      currency: { type: String, default: "KES" },
-    },
-    history: [
-      {
-        action: { type: String, required: true },
-        by: {
-          type: Schema.Types.Mixed,
-          validate: {
-            validator: function (v: any) {
-              return v === "system" || mongoose.Types.ObjectId.isValid(v);
-            },
-            message: "by must be 'system' or a valid User ObjectId",
-          },
-          required: true,
-        },
-        timestamp: { type: Date, default: Date.now },
-        notes: String,
-      },
-    ],
+
+    assignedTechId: { type: Schema.Types.ObjectId, ref: "Technician" },
+
+    scheduledStart: { type: Date },
+    scheduledEnd: { type: Date },
+
+    travelBufferMins: { type: Number, default: 30 }, // default 30 min buffer
+    priority: { type: Number, default: 0 }, // higher → more urgent
   },
   { timestamps: true }
 );
+
+// ✅ Geo index for yard location
+CustomerRequestSchema.index({ "yard.location": "2dsphere" });
 
 export default mongoose.models.CustomerRequest ||
   mongoose.model<ICustomerRequest>("CustomerRequest", CustomerRequestSchema);

@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { assignTechnician } from "@/lib/automation";
+import { assignJob } from "@/lib/automation";
 
 export async function POST(req: Request) {
   await connectDB();
   try {
     const { requestId ,userId} = await req.json();
-    const result = await assignTechnician(requestId,userId);
+    const result = await assignJob(requestId,userId);
     console.log("✅ Assigned technician:", result);
     return NextResponse.json(result, { status: 200 });
   } catch (err: any) {

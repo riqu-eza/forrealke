@@ -1,265 +1,118 @@
-/* Shared functions for automation */
+// assignJob.ts
 import CustomerRequest from "@/models/CustomerRequest";
-import Part from "@/models/Part";
-import Technician, { ITechnician } from "@/models/Technician";
-import { Types } from "mongoose";
+import Technician from "@/models/Technician";
+import mongoose from "mongoose";
 
-export async function triageRequest(requestId: string, userId: string) {
-  const request = await CustomerRequest.findById(requestId);
+// weights (can be tuned later)
+const w1 = 0.3; // distance
+const w2 = 0.3; // earliest start
+const w3 = 0.2; // workload
+const w4 = 0.2; // rating
 
-  if (!request) throw new Error("Request not found");
+// haversine for distance in km
+function haversine(
+  [lng1, lat1]: [number, number],
+  [lng2, lat2]: [number, number]
+) {
+  const toRad = (x: number) => (x * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
-  const { description, serviceType } = request;
-  const desc = (description || "").toLowerCase();
+// 👇 simplified findEarliestSlot
+async function findEarliestSlot(
+  tech: any,
+  preferredWindow: any,
+  requiredMins: number
+) {
+  // TODO: fetch tech’s jobs for the day
+  // TODO: check tech.shift & weeklyAvailability
+  // For now: just return preferredWindow.start if exists
+  if (preferredWindow?.start) return preferredWindow.start;
+  return new Date(); // fallback: now
+}
 
-  const servicePriority: Record<string, number> = {
-    engine: 9,
-    transmission: 9,
-    brakes: 8,
-    suspension: 6,
-    electrical: 6,
-    diagnostics: 5,
-    oil_change: 3,
-    tyres: 5,
-    ac: 4,
-    bodywork: 4,
-  };
+export async function assignJob(requestId: string, userId: string) {
+  const req = await CustomerRequest.findById(requestId);
+  if (!req) throw new Error("Request not found");
 
-  const keywordModifiers: Record<string, number> = {
-    "smoke": +2,
-    "fire": +3,
-    "leak": +2,
-    "won’t start": +3,
-    "brake": +2,
-    "stall": +1,
-    "noise": +1,
-    "overheat": +2,
-    "slow": -1,
-    "maintenance": -2,
-  };
+  // 1. Find candidate technicians
+  const candidates = await Technician.find({
+    active: true,
+    skills: req.carDetails.make,
+    location: {
+      $near: {
+        $geometry: req.yard.location,
+      },
+    },
+  });
 
-  // Step 1: Start with service base priority
-  let priority = serviceType && servicePriority[serviceType] 
-    ? servicePriority[serviceType] 
-    : 5; // default mid-priority
+  if (!candidates.length) throw new Error("No technicians available nearby");
 
-  // Step 2: Apply keyword modifiers
-  for (const [word, modifier] of Object.entries(keywordModifiers)) {
-    if (desc.includes(word)) {
-      priority += modifier;
+  // 2. Score each candidate
+  let best: any = null;
+  let bestScore = Infinity;
+
+  for (const tech of candidates) {
+    const distance = haversine(
+      tech.location.coordinates,
+      req.yard.location.coordinates
+    );
+
+    const nextAvailableSlot = await findEarliestSlot(
+      tech,
+      req.preferredWindow,
+      req.estimatedDurationMins + req.travelBufferMins
+    );
+
+    const workloadScore = tech.maxDailyJobs
+      ? (tech.currentJobs || 0) / tech.maxDailyJobs
+      : 1;
+    const distanceNorm = distance / 15; // normalized 0–1
+    const earliestNorm = 0.5; // TODO: normalize relative to day
+    const workloadNorm = workloadScore;
+    const ratingNorm = tech.rating / 5;
+
+    const score =
+      w1 * distanceNorm +
+      w2 * earliestNorm +
+      w3 * workloadNorm -
+      w4 * ratingNorm;
+
+    if (score < bestScore) {
+      bestScore = score;
+      best = { tech, nextAvailableSlot };
     }
   }
 
-  // Ensure priority stays between 1 and 10
-  priority = Math.max(1, Math.min(priority, 10));
+  if (!best) throw new Error("No suitable technician found");
 
-  // Save to history
-  request.history.push({
-    action: `Triaged as priority ${priority}/10`,
-    by: userId || "system", // automated
-    timestamp: new Date(),
-  });
+  // 3. Tentative schedule
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  request.priority = priority;
-  await request.save();
+  try {
+    req.assignedTechId = best.tech._id;
+    req.scheduledStart = best.nextAvailableSlot;
+    req.scheduledEnd = new Date(
+      best.nextAvailableSlot.getTime() + req.estimatedDurationMins * 60000
+    );
+    req.status = "assigned_pending";
+    await req.save({ session });
 
-  return { requestId, priority, serviceType, description };
-}
+    await session.commitTransaction();
+    session.endSession();
 
-
-export async function assignTechnician(requestId: string, userId: string) {
-  const request = await CustomerRequest.findById(requestId);
-  if (!request) throw new Error("Request not found");
-
-  // 1. Try to find a technician with matching skill (least jobs first)
-  let tech = await Technician.findOne({ skills: request.serviceType }).sort({
-    currentJobs: 1,
-  });
-
-  // 2. Fallback: if no skilled technician, assign the one with least jobs overall
-  if (!tech) {
-    tech = await Technician.findOne().sort({ currentJobs: 1 });
+    // TODO: trigger notification to technician
+    return req;
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    throw err;
   }
-
-  if (!tech) throw new Error("No technician available");
-
-  // --- update request ---
-  request.history.push({
-    action: `Assigned to technician ${tech._id}`,
-    by: userId || "system",
-    timestamp: new Date(),
-  });
-
-  request.assignedTo = tech._id;
-  request.status = "assigned";
-
-  // --- update technician ---
-  tech.currentJobs += 1;
-  await Promise.all([request.save(), tech.save()]);
-
-  return { requestId, technicianId: tech._id };
-}
-
-
-
-function addMinutesToTime(time: string, minutes: number): string {
-  const [h, m] = time.split(":").map(Number);
-  const d = new Date();
-  d.setHours(h, m, 0, 0);
-  d.setMinutes(d.getMinutes() + minutes);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-export async function scheduleJob(requestId: string, userId: string) {
-  const request = await CustomerRequest.findById(requestId);
-  if (!request) throw new Error("Request not found");
-
-  if (!request.assignedTo) throw new Error("No technician assigned to this request");
-
-  const technician: ITechnician | null = await Technician.findById(request.assignedTo);
-  if (!technician) throw new Error("Technician not found");
-
-  const jobLength = 180; // 3 hours
-  const breakLength = 30;
-
-  let startTime = technician.workHours.start;
-  let date = new Date();
-  let endTime = addMinutesToTime(startTime, jobLength);
-
-  if (technician.assignedJobs.length > 0) {
-    const lastJob = technician.assignedJobs[technician.assignedJobs.length - 1];
-    date = lastJob.date;
-
-    // next job starts after last end + break
-    startTime = addMinutesToTime(lastJob.endTime, breakLength);
-    endTime = addMinutesToTime(startTime, jobLength);
-  }
-
-  const scheduledAt = new Date(date);
-  const [sh, sm] = startTime.split(":").map(Number);
-  scheduledAt.setHours(sh, sm, 0, 0);
-
-  const scheduledEnd = new Date(date);
-  const [eh, em] = endTime.split(":").map(Number);
-  scheduledEnd.setHours(eh, em, 0, 0);
-
-  request.history.push({
-    action: `Scheduled for ${scheduledAt.toISOString()}`,
-    by: userId || "system",
-    timestamp: new Date(),
-  });
-  request.status = "in_progress";
-  request.scheduledAt = scheduledAt;
-
-  technician.assignedJobs.push({
-    requestId: new Types.ObjectId(requestId),
-    date: scheduledAt,
-    startTime,
-    endTime,
-  });
-  technician.currentJobs += 1;
-
-  await Promise.all([request.save(), technician.save()]);
-
-
-  return {
-    requestId,
-    technicianId: technician._id,
-    scheduledAt,
-    scheduledEnd,
-    startTime,
-    endTime,
-  };
-}
-
-
-
-const LABOR_RATE = 1000; // KES per hour (adjust to your needs)
-export async function generateQuote(requestId: string) {
-  const request = await CustomerRequest.findById(requestId).populate("partsUsed.partId");
-  if (!request) throw new Error("Request not found");
-
-  let total = 0;
-  const breakdown: { item: string; qty: number; unitPrice: number; subtotal: number }[] = [];
-
-  // 🔹 Parts
-  for (const used of request.partsUsed) {
-    const part = await Part.findById(used.partId);
-    if (!part) continue;
-
-    const subtotal = part.price * used.quantity;
-    total += subtotal;
-
-    breakdown.push({
-      item: part.name,
-      qty: used.quantity,
-      unitPrice: part.price,
-      subtotal,
-    });
-  }
-
-  // 🔹 Labor
-  const laborCost = request.laborHours * LABOR_RATE;
-  if (laborCost > 0) {
-    total += laborCost;
-    breakdown.push({
-      item: "Labor",
-      qty: request.laborHours,
-      unitPrice: LABOR_RATE,
-      subtotal: laborCost,
-    });
-  }
-
-  // ✅ Update request
-  request.quote = {
-    amount: total,
-    currency: "KES",
-    details: JSON.stringify(breakdown), // or array, if you prefer
-    approved: false,
-  };
-  request.status = "quoted";
-
-  request.history.push({
-    action: "Quote generated",
-    by: "system",
-    timestamp: new Date(),
-  });
-
-  await request.save();
-  return request;
-}
-
-export async function approveQuote(requestId: string, approved: boolean, userId?: string) {
-  const request = await CustomerRequest.findById(requestId);
-  if (!request) throw new Error("Request not found");
-  if (!request.quote) throw new Error("No quote to approve");
-
-  request.quote.approved = approved;
-  request.quote.approvedAt = new Date();
-  request.status = approved ? "approved" : "quoted";
-
-  request.history.push({
-    action: approved ? "Quote approved" : "Quote rejected",
-    by: userId || "system",
-    timestamp: new Date(),
-  });
-
-  await request.save();
-  return { requestId, approved };
-}
-
-
-export async function closeJob(requestId: string) {
-  const request = await CustomerRequest.findById(requestId);
-  if (!request) throw new Error("Request not found");
-
-  request.status = "completed";
-  request.history.push({
-    action: "Job closed",
-    by: null,
-    timestamp: new Date(),
-  });
-
-  await request.save();
-  return { requestId, status: "completed" };
 }

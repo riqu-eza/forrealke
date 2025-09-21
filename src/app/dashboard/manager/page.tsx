@@ -1,33 +1,20 @@
 "use client";
 
 import { useUser } from "@/context/UserContext";
+import { ICustomerRequest } from "@/models/CustomerRequest";
 import { useEffect, useState } from "react";
 
-interface CustomerRequest {
-  _id: string;
-  serviceType: string;
-  description: string;
-  status: string;
-  quote?: {
-    amount: number;
-    currency: string;
-    details: string;
-    approved: boolean;
-  };
-  history: { action: string; timestamp: string }[];
-  createdAt: string;
-}
-
 export default function ManagerDashboard() {
-  const [requests, setRequests] = useState<CustomerRequest[]>([]);
+  const [requests, setRequests] = useState<ICustomerRequest[]>([]);
   const [loading, setLoading] = useState(true);
- const { user } = useUser();  // Fetch all requests
+  const { user } = useUser(); // Fetch all requests
   useEffect(() => {
     const fetchRequests = async () => {
       try {
         const res = await fetch("/api/requests");
         const data = await res.json();
         setRequests(data);
+        console.log("Fetched requests:", data);
       } catch (err) {
         console.error("Error fetching requests", err);
       } finally {
@@ -43,7 +30,8 @@ export default function ManagerDashboard() {
       const res = await fetch(`/api/automations/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId, userId: user?._id }),      });
+        body: JSON.stringify({ requestId, userId: user?._id }),
+      });
       const data = await res.json();
       console.log(`${action} result:`, data);
 
@@ -67,68 +55,50 @@ export default function ManagerDashboard() {
         <div className="space-y-4">
           {requests.map((req) => (
             <div
-              key={req._id}
+              key={String(req._id)}
               className="p-4 border rounded shadow-sm bg-white space-y-2"
             >
               <p>
-                <strong>Type:</strong> {req.serviceType}
+                <strong>Yard:</strong> {req.yard.name} ({req.yard.address})
               </p>
               <p>
-                <strong>Description:</strong> {req.description}
+                <strong>Car:</strong> {req.carDetails.make}{" "}
+                {req.carDetails.model} ({req.carDetails.regNo})
+              </p>
+              <p>
+                <strong>Preferred Window:</strong>
+                {new Date(req.preferredWindow.start).toLocaleString()} →
+                {new Date(req.preferredWindow.end).toLocaleString()}
               </p>
               <p>
                 <strong>Status:</strong> {req.status}
               </p>
-              {req.quote && (
-                <p>
-                  <strong>Quote:</strong> {req.quote.amount} {req.quote.currency} (
-                  {req.quote.approved ? "Approved" : "Pending"})
-                </p>
-              )}
+              <p>
+                <strong>Priority:</strong> {req.priority}
+              </p>
+
               <div className="flex flex-wrap gap-2 mt-2">
-                <button
-                  className="px-3 py-1 bg-blue-500 text-white rounded"
-                  onClick={() => handleAction(req._id, "triage")}
-                >
-                  Triage
-                </button>
+               
                 <button
                   className="px-3 py-1 bg-green-500 text-white rounded"
-                  onClick={() => handleAction(req._id, "assign")}
+                  onClick={() => handleAction(String(req._id), "assign")}
                 >
                   Assign
                 </button>
-                <button
-                  className="px-3 py-1 bg-yellow-500 text-white rounded"
-                  onClick={() => handleAction(req._id, "schedule")}
-                >
-                  Schedule
-                </button>
+                
                 <button
                   className="px-3 py-1 bg-orange-500 text-white rounded"
-                  onClick={() => handleAction(req._id, "approveQuote")}
+                  onClick={() => handleAction(String(req._id), "report")}
                 >
-                  Approve Quote
+                  Report
                 </button>
                 <button
                   className="px-3 py-1 bg-red-500 text-white rounded"
-                  onClick={() => handleAction(req._id, "closeJob")}
+                  onClick={() => handleAction(String(req._id), "close")}
                 >
-                  Close Job
+                  Close
                 </button>
               </div>
-              {req.history.length > 0 && (
-                <div className="mt-2 text-sm text-gray-600">
-                  <strong>History:</strong>
-                  <ul className="list-disc ml-5">
-                    {req.history.map((h, i) => (
-                      <li key={i}>
-                        {h.action} - {new Date(h.timestamp).toLocaleString()}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
           ))}
         </div>

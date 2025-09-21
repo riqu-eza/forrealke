@@ -1,49 +1,70 @@
+// models/Technician.ts
 import mongoose, { Schema, Document } from "mongoose";
 
-export interface IAssignedJob {
-  requestId: mongoose.Types.ObjectId;
-  date: Date;
-  startTime: string; // "09:00"
-  endTime: string;   // "12:00"
-}
-
 export interface ITechnician extends Document {
-  userId: mongoose.Types.ObjectId;
-  skills: string[];
-  currentJobs: number;
-
-  workHours: {
+  userId: mongoose.Types.ObjectId; // 🔗 Reference to User
+  location: {
+    type: "Point";
+    coordinates: [number, number]; // [lng, lat]
+  };
+  skills: string[]; // e.g., ["sedan", "suv", "heavy"]
+  shift: {
+    start: Date;
+    end: Date;
+  }[];
+  weeklyAvailability: {
+    dayOfWeek: number; // 0 (Sunday) - 6 (Saturday)
     start: string; // "08:00"
     end: string;   // "17:00"
-    days: string[]; // ["Mon","Tue","Wed","Thu","Fri"]
-  };
-
-  assignedJobs: IAssignedJob[];
+  }[];
+  maxDailyJobs: number;
+  rating: number;
+  active: boolean;
 }
 
-const AssignedJobSchema = new Schema<IAssignedJob>(
+const TechnicianSchema = new Schema<ITechnician>(
   {
-    requestId: { type: Schema.Types.ObjectId, ref: "CustomerRequest" },
-    date: { type: Date, required: true },
-    startTime: { type: String, required: true },
-    endTime: { type: String, required: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true }, // 🔗
+
+
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        required: true,
+      },
+      coordinates: {
+        type: [Number], // [lng, lat]
+        required: true,
+      },
+    },
+
+    skills: [{ type: String, required: true }],
+
+    shift: [
+      {
+        start: { type: Date, required: true },
+        end: { type: Date, required: true },
+      },
+    ],
+
+    weeklyAvailability: [
+      {
+        dayOfWeek: { type: Number, min: 0, max: 6, required: true },
+        start: { type: String, required: true }, // "08:00"
+        end: { type: String, required: true },   // "17:00"
+      },
+    ],
+
+    maxDailyJobs: { type: Number, default: 5 },
+    rating: { type: Number, default: 5, min: 0, max: 5 },
+    active: { type: Boolean, default: true },
   },
-  { _id: false }
+  { timestamps: true }
 );
 
-const TechnicianSchema = new Schema<ITechnician>({
-  userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  skills: [{ type: String, required: true }],
-  currentJobs: { type: Number, default: 0 },
-
-  workHours: {
-    start: { type: String, default: "08:00" },
-    end: { type: String, default: "17:00" },
-    days: { type: [String], default: ["Mon", "Tue", "Wed", "Thu", "Fri"] },
-  },
-
-  assignedJobs: { type: [AssignedJobSchema], default: [] },
-});
+// Enable geospatial queries
+TechnicianSchema.index({ location: "2dsphere" });
 
 export default mongoose.models.Technician ||
   mongoose.model<ITechnician>("Technician", TechnicianSchema);

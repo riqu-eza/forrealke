@@ -1,44 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useUser } from "@/context/UserContext"; // provides currentUser
+import { useUser } from "@/context/UserContext";
 import { Button } from "@/component/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/component/ui/card";
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { v4 as uuidv4 } from "uuid";
-interface Technician {
-  _id: string;
-  userId: string;
-  skills: string[];
-  currentJobs: number;
-  availability: {
-    start: string;
-    end: string;
-    days: string[];
-  };
-}
-
-interface AssignedJob {
-  _id: string;
-  serviceType: string;
-  description: string;
-  status: string;
-  createdAt: string;
-}
+import { ITechnician } from "@/models/Technician";
+import { ICustomerRequest } from "@/models/CustomerRequest";
+import VehicleChecklistForm from "@/component/forms/VehicleChecklistForm";
+type Technician = ITechnician & { _id: string };
+type CustomerRequest = ICustomerRequest & { _id: string };
 
 export default function TechDashboard() {
   const { user } = useUser();
   const [tech, setTech] = useState<Technician | null>(null);
   const [loading, setLoading] = useState(true);
+
   const [showSkillsForm, setShowSkillsForm] = useState(false);
   const [newSkill, setNewSkill] = useState("");
 
-  const [jobs, setJobs] = useState<AssignedJob[]>([]);
-  const [selectedJob, setSelectedJob] = useState<AssignedJob | null>(null);
+  const [jobs, setJobs] = useState<CustomerRequest[]>([]);
+  const [selectedJob, setSelectedJob] = useState<CustomerRequest | null>(null);
+
   const [inspectionNotes, setInspectionNotes] = useState("");
   const [laborHours, setLaborHours] = useState(0);
   const [photos, setPhotos] = useState<File[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [parts, setParts] = useState<
     { _id: string; name: string; unit: string }[]
   >([]);
@@ -46,38 +35,26 @@ export default function TechDashboard() {
     { partId: string; quantity: number }[]
   >([]);
 
-  useEffect(() => {
-    const fetchParts = async () => {
-      try {
-        const res = await fetch("/api/admin/parts");
-        const data = await res.json();
-        setParts(data);
-      } catch (err) {
-        console.error("Error fetching parts", err);
-      }
-    };
-    fetchParts();
-  }, []);
+  // 🔹 Fetch parts catalog
 
-  // Fetch technician profile and assigned jobs
+  // 🔹 Fetch technician + assigned jobs
   useEffect(() => {
     const fetchTechData = async () => {
       if (!user?._id) return;
       setLoading(true);
 
       try {
-        // Fetch technician profile by userId
         const res = await fetch(`/api/technicians?userId=${user._id}`);
         const techData: Technician = await res.json();
         setTech(techData);
-
+        console.log("Fetched tech data:", techData);
         if (techData?._id) {
-          // ✅ Now use technician._id for assigned jobs
           const jobsRes = await fetch(
             `/api/requests?technicianId=${techData._id}`
           );
-          const jobsData: AssignedJob[] = await jobsRes.json();
+          const jobsData: CustomerRequest[] = await jobsRes.json();
           setJobs(jobsData);
+          console.log("Fetched assigned jobs:", jobsData);
         }
       } catch (err) {
         console.error("Error fetching technician data", err);
@@ -88,11 +65,12 @@ export default function TechDashboard() {
 
     fetchTechData();
   }, [user]);
+
+  // 🔹 Submit inspection + update job
   const handleUpdateJob = async () => {
     if (!selectedJob) return;
 
     try {
-      // 1️⃣ Upload photos to Firebase
       const uploadedUrls: string[] = [];
       for (const file of photos) {
         const storageRef = ref(
@@ -104,16 +82,14 @@ export default function TechDashboard() {
         uploadedUrls.push(url);
       }
 
-      // 2️⃣ Build update payload
       const formData = {
         inspectionNotes,
         laborHours,
-        status: "quoted",
         partsUsed: selectedParts.filter((sp) => sp.partId && sp.quantity > 0),
-        photos: uploadedUrls, // ✅ Firebase URLs
+        photos: uploadedUrls,
+        status: "report_submitted", // match CustomerRequest model
       };
 
-      // 3️⃣ Send PATCH request
       const res = await fetch(`/api/requests/${selectedJob._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -123,11 +99,9 @@ export default function TechDashboard() {
       if (!res.ok) throw new Error("Failed to update job");
 
       const updated = await res.json();
-
-      // 4️⃣ Update UI state
       setJobs(jobs.map((j) => (j._id === updated._id ? updated : j)));
-      setSelectedJob(null);
 
+      setSelectedJob(null);
       setInspectionNotes("");
       setLaborHours(0);
       setSelectedParts([]);
@@ -137,10 +111,9 @@ export default function TechDashboard() {
     }
   };
 
-  // Add new skill
+  // 🔹 Skill management
   const handleAddSkill = async () => {
     if (!tech || !newSkill.trim()) return;
-
     const updatedSkills = [...tech.skills, newSkill.trim()];
 
     try {
@@ -160,10 +133,8 @@ export default function TechDashboard() {
     }
   };
 
-  // Remove a skill
   const handleRemoveSkill = async (skill: string) => {
     if (!tech) return;
-
     const updatedSkills = tech.skills.filter((s) => s !== skill);
 
     try {
@@ -192,28 +163,36 @@ export default function TechDashboard() {
           <Button onClick={() => setShowSkillsForm(!showSkillsForm)}>
             Profile
           </Button>
-
           {showSkillsForm && tech && (
-            <div className="absolute right-0 mt-2 w-64 bg-gray-50 border rounded-lg p-4 shadow-lg z-50">
-              <h2 className="font-semibold mb-2">Manage Skills</h2>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {tech.skills.map((skill) => (
-                  <div
-                    key={skill}
-                    className="bg-gray-200 px-2 py-1 rounded flex items-center gap-1"
-                  >
-                    {skill}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSkill(skill)}
-                      className="text-red-500 font-bold"
+            <div className="absolute right-0 mt-2 w-80 bg-gray-50 border rounded-lg p-4 shadow-lg z-50">
+              <h2 className="font-semibold mb-2">Manage Skills & Location</h2>
+
+              {/* Skills */}
+              {Array.isArray(tech?.skills) && tech.skills.length > 0 ? (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {tech.skills.map((skill) => (
+                    <div
+                      key={skill}
+                      className="bg-gray-200 px-2 py-1 rounded flex items-center gap-1"
                     >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
+                      {skill}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSkill(skill)}
+                        className="text-red-500 font-bold"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 mb-2">
+                  No skills added yet
+                </p>
+              )}
+
+              <div className="flex gap-2 mb-4">
                 <input
                   type="text"
                   value={newSkill}
@@ -223,107 +202,110 @@ export default function TechDashboard() {
                 />
                 <Button onClick={handleAddSkill}>Add</Button>
               </div>
+
+              {/* Location */}
+              <h3 className="font-semibold mb-2">Location</h3>
+              <p className="text-sm text-gray-500 mb-2">
+                Your GPS location will be saved securely. It won’t be shown
+                here.
+              </p>
+
+              <div className="flex justify-between">
+                <Button
+                  onClick={() => {
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(async (pos) => {
+                        try {
+                          const res = await fetch("/api/technicians", {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              userId: user?._id,
+                              updates: {
+                                location: {
+                                  type: "Point",
+                                  coordinates: [
+                                    pos.coords.longitude,
+                                    pos.coords.latitude,
+                                  ],
+                                },
+                              },
+                            }),
+                          });
+                          const updated = await res.json();
+                          setTech(updated);
+                          setShowSkillsForm(false);
+                        } catch (err) {
+                          console.error("Error saving location", err);
+                        }
+                      });
+                    } else {
+                      alert("Geolocation is not supported on this device.");
+                    }
+                  }}
+                >
+                  Save Current Location
+                </Button>
+
+                <Button
+                  onClick={() => setShowSkillsForm(false)}
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Job modal */}
       {selectedJob && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl w-full max-w-lg">
-            <h2 className="font-bold mb-4">
-              Work on {selectedJob.serviceType}
-            </h2>
-
-            <textarea
-              placeholder="Inspection notes"
-              value={inspectionNotes}
-              onChange={(e) => setInspectionNotes(e.target.value)}
-              className="w-full border rounded p-2 mb-2"
-            />
-
-            <input
-              type="number"
-              placeholder="Labor hours"
-              value={laborHours}
-              onChange={(e) => setLaborHours(parseFloat(e.target.value))}
-              className="w-full border rounded p-2 mb-2"
-            />
-            <div className="mb-4">
-              <h3 className="font-semibold mb-2">Parts Used</h3>
-
-              {selectedParts.map((sp, index) => (
-                <div key={index} className="flex items-center gap-2 mb-2">
-                  <select
-                    value={sp.partId}
-                    onChange={(e) => {
-                      const updated = [...selectedParts];
-                      updated[index].partId = e.target.value;
-                      setSelectedParts(updated);
-                    }}
-                    className="flex-1 border rounded p-2"
-                  >
-                    <option value="">Select part</option>
-                    {parts.map((p) => (
-                      <option key={p._id} value={p._id}>
-                        {p.name} ({p.unit})
-                      </option>
-                    ))}
-                  </select>
-
-                  <input
-                    type="number"
-                    value={sp.quantity}
-                    min={1}
-                    onChange={(e) => {
-                      const updated = [...selectedParts];
-                      updated[index].quantity = Number(e.target.value);
-                      setSelectedParts(updated);
-                    }}
-                    className="w-20 border rounded p-2"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelectedParts(
-                        selectedParts.filter((_, i) => i !== index)
-                      )
-                    }
-                    className="text-red-500"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-
-              <Button
-                type="button"
-                onClick={() =>
-                  setSelectedParts([
-                    ...selectedParts,
-                    { partId: "", quantity: 1 },
-                  ])
-                }
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-6 rounded-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-bold">
+                Work on {selectedJob.carDetails.make}{" "}
+                {selectedJob.carDetails.model}
+              </h2>
+              <button
+                onClick={() => setSelectedJob(null)}
+                className="text-gray-500 hover:text-gray-700"
               >
-                + Add Part
-              </Button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
             </div>
 
-            <input
-              type="file"
-              multiple
-              onChange={(e) => setPhotos(Array.from(e.target.files || []))}
-              className="mb-2"
-            />
+            <div className="flex-1 overflow-y-auto pr-2">
+              <VehicleChecklistForm />
+            </div>
 
-            <div className="flex gap-2">
-              <Button onClick={handleUpdateJob}>Save</Button>
-              <Button onClick={() => setSelectedJob(null)}>Cancel</Button>
+            <div className="flex gap-2 pt-4 border-t mt-4">
+              <Button
+                onClick={() => setSelectedJob(null)}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-md"
+              >
+                Cancel
+              </Button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Assigned jobs */}
       <h2 className="text-lg font-bold">Assigned Jobs</h2>
       {jobs.length === 0 ? (
         <p>No jobs assigned yet.</p>
@@ -332,21 +314,41 @@ export default function TechDashboard() {
           {jobs.map((job) => (
             <Card key={job._id}>
               <CardHeader>
-                <CardTitle>{job.serviceType}</CardTitle>
+                <CardTitle>
+                  {job.carDetails.make} {job.carDetails.model} (
+                  {job.carDetails.type})
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p>{job.description}</p>
+                <p>
+                  <strong>Yard:</strong> {job.yard.name}, {job.yard.address}
+                </p>
                 <p className="text-sm mt-2">Status: {job.status}</p>
                 <p className="text-xs text-gray-400 mt-2">
                   Created: {new Date(job.createdAt).toLocaleString()}
                 </p>
-                <Button
-                  onClick={() => {
-                    setSelectedJob(job);
-                  }}
-                >
+                <Button className="mr-4" onClick={() => setSelectedJob(job)}>
                   Work on Job
                 </Button>
+                <Button
+  onClick={async () => {
+    try {
+      const res = await fetch(`/api/requests/${job._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "scheduled" }),
+      });
+      if (!res.ok) throw new Error("Failed to accept job");
+      const updated = await res.json();
+      setJobs(jobs.map((j) => (j._id === updated._id ? updated : j)));
+    } catch (err) {
+      console.error("Error accepting job:", err);
+    }
+  }}
+>
+  Accept Job
+</Button>
+
               </CardContent>
             </Card>
           ))}

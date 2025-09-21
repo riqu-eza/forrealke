@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     let query: any = {};
 
     if (technicianId) {
-      query["assignedTo"] = new mongoose.Types.ObjectId(technicianId);
+      query["assignedTechId"] = new mongoose.Types.ObjectId(technicianId);
     }
 
     if (customerId) {

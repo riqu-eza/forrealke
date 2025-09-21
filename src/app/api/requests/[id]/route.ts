@@ -2,7 +2,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import CustomerRequest from "@/models/CustomerRequest";
-import { generateQuote } from "@/lib/automation";
 
 /**
  * NOTE:
@@ -76,15 +75,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    // If someone sets status to "quoted", optionally call generateQuote
-    if (body.status === "quoted") {
-      try {
-        await generateQuote(updatedRequest._id.toString());
-        // re-fetch fresh doc in case generateQuote updated DB
-      } catch (err) {
-        console.error("Error generating quote:", err);
-      }
-    }
+  
 
     const fresh = await CustomerRequest.findById(id);
     return NextResponse.json(fresh, { status: 200 });
