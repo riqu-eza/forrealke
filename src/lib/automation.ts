@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // assignJob.ts
 import CustomerRequest from "@/models/CustomerRequest";
 import Technician from "@/models/Technician";

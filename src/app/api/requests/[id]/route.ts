@@ -54,6 +54,7 @@ export async function PUT(
 }
 
 // PATCH (partial update)
+
 export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -64,10 +65,10 @@ export async function PATCH(
     const { id } = await context.params;
     const body = await req.json();
 
-    // Partial update
+    // Only update fields present in body (retain others)
     const updatedRequest = await CustomerRequest.findByIdAndUpdate(
       id,
-      { $set: body },
+      { $set: { ...body } },
       { new: true, runValidators: true }
     );
 
@@ -75,8 +76,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-  
-
+    // Fetch latest from DB to ensure it's fresh
     const fresh = await CustomerRequest.findById(id);
     return NextResponse.json(fresh, { status: 200 });
   } catch (error: any) {
@@ -84,6 +84,7 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
 
 // DELETE
 export async function DELETE(

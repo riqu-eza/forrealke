@@ -12,8 +12,15 @@ import ExpandIcon from "@/component/ui/icons/ExpandIcon";
 import CheckCircleIcon from "@/component/ui/icons/CheckCircleIcon";
 import { Input } from "@/component/ui/input";
 import { Label } from "@/component/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/component/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/component/ui/select";
 import { Skeleton } from "@/component/ui/skeleton";
+import { generateReportPDF } from "@/utils/generateReportPDF";
 
 interface IQuoteItem {
   item: string;
@@ -50,7 +57,9 @@ export default function CustomerDashboard() {
   const [requests, setRequests] = useState<ICustomerRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
+  const [expandedRequestId, setExpandedRequestId] = useState<string | null>(
+    null
+  );
   const [approvingQuote, setApprovingQuote] = useState<string | null>(null);
   const [form, setForm] = useState<IFormData>({
     serviceType: "",
@@ -369,7 +378,9 @@ export default function CustomerDashboard() {
 
               {/* --- CAR DETAILS --- */}
               <div className="space-y-4">
-                <h3 className="font-semibold text-gray-700 text-lg">Car Details</h3>
+                <h3 className="font-semibold text-gray-700 text-lg">
+                  Car Details
+                </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="carMake">Make</Label>
@@ -381,7 +392,10 @@ export default function CustomerDashboard() {
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                         setForm({
                           ...form,
-                          carDetails: { ...form.carDetails, make: e.target.value },
+                          carDetails: {
+                            ...form.carDetails,
+                            make: e.target.value,
+                          },
                         })
                       }
                       required
@@ -397,7 +411,10 @@ export default function CustomerDashboard() {
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                         setForm({
                           ...form,
-                          carDetails: { ...form.carDetails, model: e.target.value },
+                          carDetails: {
+                            ...form.carDetails,
+                            model: e.target.value,
+                          },
                         })
                       }
                       required
@@ -417,7 +434,9 @@ export default function CustomerDashboard() {
                           ...form,
                           carDetails: {
                             ...form.carDetails,
-                            year: parseInt(e.target.value) || new Date().getFullYear(),
+                            year:
+                              parseInt(e.target.value) ||
+                              new Date().getFullYear(),
                           },
                         })
                       }
@@ -434,7 +453,10 @@ export default function CustomerDashboard() {
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                         setForm({
                           ...form,
-                          carDetails: { ...form.carDetails, regNo: e.target.value },
+                          carDetails: {
+                            ...form.carDetails,
+                            regNo: e.target.value,
+                          },
                         })
                       }
                       required
@@ -490,24 +512,24 @@ export default function CustomerDashboard() {
                       required
                     />
                   </div>
-                    <div className="space-y-2">
+                  <div className="space-y-2">
                     <Label htmlFor="endTime">End Time</Label>
                     <Input
                       id="endTime"
                       type="datetime-local"
                       value={form.preferredWindow.end}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setForm({
-                        ...form,
-                        preferredWindow: {
-                        ...form.preferredWindow,
-                        end: e.target.value,
-                        },
-                      })
+                        setForm({
+                          ...form,
+                          preferredWindow: {
+                            ...form.preferredWindow,
+                            end: e.target.value,
+                          },
+                        })
                       }
                       required
                     />
-                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -547,11 +569,9 @@ export default function CustomerDashboard() {
               key={req._id as string}
               className="bg-white shadow-md overflow-hidden"
             >
-              <CardHeader >
+              <CardHeader>
                 <div className="flex text-amber-700 justify-between items-start">
-                  <CardTitle >
-                    {req.yard?.name || "Unnamed Yard"}
-                  </CardTitle>
+                  <CardTitle>{req.yard?.name || "Unnamed Yard"}</CardTitle>
                   <Badge
                     variant={getStatusVariant(req.status)}
                     className="capitalize"
@@ -560,187 +580,92 @@ export default function CustomerDashboard() {
                   </Badge>
                 </div>
                 <p className="text-sm text-gray-500 mt-1">
-                    {formatDate(req.createdAt|| "date")}
+                  {formatDate(req.createdAt || "date")}
                 </p>
               </CardHeader>
 
-              <CardContent >
-                <div className=" " >
-                  <h4 className="font-bold text-emerald-800 mb-1">Yard Address</h4>
-                  <p className="text-stone-600 ">{req.yard?.address || "N/A"}</p>
+              <CardContent>
+                <div className=" ">
+                  <h4 className="font-bold text-emerald-800 mb-1">
+                    Yard Address
+                  </h4>
+                  <p className="text-stone-600 ">
+                    {req.yard?.address || "N/A"}
+                  </p>
                 </div>
 
                 <div>
-                  <h4 className="font-bold text-emerald-800 mb-1">Car Details</h4>
+                  <h4 className="font-bold text-emerald-800 mb-1">
+                    Car Details
+                  </h4>
                   <p className="text-stone-600 ">
-                    {req.carDetails?.make} {req.carDetails?.model} ({req.carDetails?.year})
+                    {req.carDetails?.make} {req.carDetails?.model} (
+                    {req.carDetails?.year})
                   </p>
-                  <p className="text-stone-600 ">Reg: {req.carDetails?.regNo || "N/A"}</p>
+                  <p className="text-stone-600 ">
+                    Reg: {req.carDetails?.regNo || "N/A"}
+                  </p>
                 </div>
 
                 {req.preferredWindow && (
                   <div>
-                    <h4 className="font-bold text-emerald-800 mb-1">Preferred Service Window</h4>
+                    <h4 className="font-bold text-emerald-800 mb-1">
+                      Preferred Service Window
+                    </h4>
                     <p className="text-stone-600 ">
-                      {formatDate(req.preferredWindow.start)} - {formatDate(req.preferredWindow.end)}
+                      {formatDate(req.preferredWindow.start)} -{" "}
+                      {formatDate(req.preferredWindow.end)}
                     </p>
                   </div>
                 )}
 
-                <Button
-                  variant="outline"
-                  onClick={() => toggleRequestDetails(req._id as string)}
-                  className="w-full flex items-center justify-center gap-2"
-                >
-                  {expandedRequestId === req._id ? (
-                    <>
-                      <CollapseIcon size={16} />
-                      Hide Details
-                    </>
-                  ) : (
-                    <>
-                      <ExpandIcon size={16} />
-                      View Details
-                    </>
-                  )}
-                </Button>
+                {req.status === "report_submitted" && req.report && (
+                  <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+                    <h3 className="font-semibold text-gray-800 mb-2">
+                      Inspection Report
+                    </h3>
 
-                {/* {expandedRequestId === req._id && (
-                  <div className="pt-4 border-t space-y-4">
-                    {req.quote && (
-                      <div className="border rounded-lg overflow-hidden">
-                        <div className="bg-amber-50 p-4 border-b">
-                          <div className="flex justify-between items-center">
-                            <h3 className="font-semibold text-amber-800">
-                              Quote Summary
-                            </h3>
-                            <span className="font-bold text-amber-900 text-lg">
-                              {formatCurrency(req.quote.amount, req.quote.currency)}
+                    <div className="space-y-2">
+                      {Object.entries(req.report.checklist || {}).map(
+                        ([item, { status, notes }], idx) => (
+                          <div
+                            key={idx}
+                            className="flex justify-between items-start text-sm p-2 even:bg-white odd:bg-gray-100 rounded"
+                          >
+                            <div>
+                              <span className="font-medium text-gray-700">
+                                {item}
+                              </span>
+                              {notes && (
+                                <p className="text-gray-500 text-xs">
+                                  Notes: {notes}
+                                </p>
+                              )}
+                            </div>
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-medium ${
+                                status === "OK"
+                                  ? "bg-green-100 text-green-700"
+                                  : status === "Needs Attention"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {status}
                             </span>
                           </div>
+                        )
+                      )}
+                    </div>
 
-                          {!req.quote.approved && (
-                            <div className="mt-3">
-                              <Button
-                                onClick={() => handleApproveQuote(req._id as string)}
-                                disabled={approvingQuote === req._id}
-                                className="w-full bg-green-600 hover:bg-green-700 flex items-center justify-center gap-2"
-                              >
-                                {approvingQuote === req._id ? (
-                                  "Processing..."
-                                ) : (
-                                  <>
-                                    <CheckCircleIcon size={16} />
-                                    Approve Quote
-                                  </>
-                                )}
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="p-4 bg-white">
-                          <h4 className="font-medium mb-3 text-gray-700">
-                            Quote Breakdown:
-                          </h4>
-                          <div className="space-y-3">
-                            {req.quote.details && parseQuoteDetails(req.quote.details).map(
-                              (item, index) => (
-                                <div
-                                  key={index}
-                                  className="flex justify-between text-sm p-2 even:bg-gray-50 rounded"
-                                >
-                                  <div className="flex-1">
-                                    <span className="font-medium text-gray-800">
-                                      {item.item}
-                                    </span>
-                                    <span className="text-gray-500 ml-2">
-                                      (Qty: {item.qty})
-                                    </span>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-gray-600">
-                                      {formatCurrency(
-                                        item.unitPrice,
-                                        req.quote?.currency || "KES"
-                                      )}{" "}
-                                      × {item.qty}
-                                    </div>
-                                    <div className="font-medium text-gray-900">
-                                      {formatCurrency(
-                                        item.subtotal,
-                                        req.quote?.currency || "KES"
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            )}
-
-                            <div className="border-t pt-2 mt-2 flex justify-between font-bold text-gray-900">
-                              <div>Total</div>
-                              <div>
-                                {formatCurrency(
-                                  req.quote.amount,
-                                  req.quote.currency
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {req.quote.approved && (
-                          <div className="p-3 bg-green-50 border-t">
-                            <p className="text-green-700 font-medium flex items-center gap-1">
-                              <CheckCircleIcon size={18} />
-                              Quote approved on {formatDate(req.quote.approvedAt)}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {req.payment && (
-                      <div className="p-4 border rounded-lg bg-green-50">
-                        <h3 className="font-semibold text-green-800 mb-2">
-                          Payment Information
-                        </h3>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div className="text-gray-600">Amount:</div>
-                          <div className="font-medium">
-                            {formatCurrency(
-                              req.payment.amount,
-                              req.payment.currency || "KES"
-                            )}
-                          </div>
-
-                          <div className="text-gray-600">Method:</div>
-                          <div className="capitalize font-medium">
-                            {req.payment.method}
-                          </div>
-
-                          <div className="text-gray-600">Transaction ID:</div>
-                          <div className="font-medium">
-                            {req.payment.transactionId}
-                          </div>
-
-                          <div className="text-gray-600">Paid at:</div>
-                          <div className="font-medium">
-                            {formatDate(req.payment.paidAt)}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {req.completedAt && (
-                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <p className="text-blue-700 font-medium">
-                          Service completed on {formatDate(req.completedAt)}
-                        </p>
-                      </div>
-                    )}
+                    <Button
+                      onClick={() => generateReportPDF(req)}
+                      className="mt-4 bg-blue-600 hover:bg-blue-700"
+                    >
+                      Download Report (PDF)
+                    </Button>
                   </div>
-                )} */}
+                )}
               </CardContent>
             </Card>
           ))}

@@ -1,4 +1,3 @@
-// models/CustomerRequest.ts
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface ICustomerRequest extends Document {
@@ -40,6 +39,12 @@ export interface ICustomerRequest extends Document {
   scheduledEnd?: Date;
   travelBufferMins: number;
   priority: number;
+
+  // ✅ Report
+  report?: {
+    checklist: Record<string, { status: string; notes: string }>;
+    submittedAt: Date;
+  };
 }
 
 const CustomerRequestSchema = new Schema<ICustomerRequest>(
@@ -88,6 +93,22 @@ const CustomerRequestSchema = new Schema<ICustomerRequest>(
         "cancelled",
       ],
       default: "new",
+    },
+
+    // ✅ Single definition for report
+    report: {
+      checklist: {
+        type: Map,
+        of: new Schema(
+          {
+            status: { type: String, enum: ["OK", "Needs Attention", "Critical"] },
+            notes: { type: String },
+          },
+          { _id: false }
+        ),
+        default: {},
+      },
+      submittedAt: { type: Date },
     },
 
     assignedTechId: { type: Schema.Types.ObjectId, ref: "Technician" },

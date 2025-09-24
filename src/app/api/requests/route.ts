@@ -28,6 +28,7 @@ export async function GET(req: Request) {
 
     const requests = await CustomerRequest.find(query).sort({ createdAt: -1 });
     return NextResponse.json(requests, { status: 200 });
+    console.log(`Fetched ${requests.length} requests`);
   } catch (error: any) {
     console.error("❌ Error in GET /api/requests:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

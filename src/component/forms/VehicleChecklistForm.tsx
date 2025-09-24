@@ -5,26 +5,29 @@ import React, { useState } from "react";
 
 type Status = "OK" | "Needs Attention" | "Critical";
 
-export default function VehicleChecklistForm() {
+export default function VehicleChecklistForm({
+  requestId, // ✅ pass this from parent (job._id or similar)
+}: {
+  requestId: string;
+}) {
   const [responses, setResponses] = useState<
     Record<string, { status: Status; notes: string }>
   >({});
   const [activeCategory, setActiveCategory] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (
     item: string,
     field: "status" | "notes",
     value: Status | string
   ) => {
-    setResponses((prev) => ({
-      ...prev,
-      [item]: { ...prev[item], [field]: value },
-    }));
-  };
-
-  const handleSubmit = () => {
-    console.log("Submitted responses:", responses);
-    // TODO: send to backend (API)
+    setResponses((prev) => {
+      const updated = {
+        ...prev,
+        [item]: { ...prev[item], [field]: value },
+      };
+      return updated;
+    });
   };
 
   const getStatusColor = (status: Status | undefined) => {
@@ -40,8 +43,38 @@ export default function VehicleChecklistForm() {
     }
   };
 
-  const progress = Object.keys(responses).length / 
-    checklistTemplate.reduce((acc, cat) => acc + cat.items.length, 0) * 100;
+  const progress =
+    (Object.keys(responses).length /
+      checklistTemplate.reduce((acc, cat) => acc + cat.items.length, 0)) *
+    100;
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/requests/${requestId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          report: {
+            checklist: responses,
+            submittedAt: new Date(),
+          },
+          status: "report_submitted",
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to submit checklist");
+
+      const updated = await res.json();
+      console.log("Checklist submitted successfully:", updated);
+      alert("Checklist submitted successfully ✅");
+    } catch (err) {
+      console.error("Error submitting checklist:", err);
+      alert("Failed to submit checklist ❌");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
@@ -51,8 +84,8 @@ export default function VehicleChecklistForm() {
           <h1 className="text-xl font-bold text-gray-800">Vehicle Checkup</h1>
           <div className="mt-2">
             <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div 
-                className="bg-blue-600 h-2.5 rounded-full" 
+              <div
+                className="bg-blue-600 h-2.5 rounded-full"
                 style={{ width: `${progress}%` }}
               ></div>
             </div>
@@ -99,11 +132,16 @@ export default function VehicleChecklistForm() {
 
           <ul className="space-y-4">
             {checklistTemplate[activeCategory].items.map((item, j) => (
-              <li key={j} className="p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
+              <li
+                key={j}
+                className="p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow"
+              >
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                   <span className="font-medium text-gray-800">{item}</span>
                   <select
-                    className={`px-3 py-2 border rounded-md text-sm font-medium ${getStatusColor(responses[item]?.status as Status)}`}
+                    className={`px-3 py-2 border rounded-md text-sm font-medium ${getStatusColor(
+                      responses[item]?.status as Status
+                    )}`}
                     value={responses[item]?.status || ""}
                     onChange={(e) =>
                       handleChange(item, "status", e.target.value as Status)
@@ -134,7 +172,7 @@ export default function VehicleChecklistForm() {
             >
               Previous
             </button>
-            
+
             {activeCategory < checklistTemplate.length - 1 ? (
               <button
                 onClick={() => setActiveCategory(activeCategory + 1)}
@@ -145,9 +183,10 @@ export default function VehicleChecklistForm() {
             ) : (
               <button
                 onClick={handleSubmit}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                disabled={submitting}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
               >
-                Submit Checklist
+                {submitting ? "Submitting..." : "Submit Checklist"}
               </button>
             )}
           </div>

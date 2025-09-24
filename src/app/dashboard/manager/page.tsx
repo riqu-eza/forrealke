@@ -86,12 +86,12 @@ export default function ManagerDashboard() {
                   Assign
                 </button>
                 
-                <button
+                {/* <button
                   className="px-3 py-1 bg-orange-500 text-white rounded"
                   onClick={() => handleAction(String(req._id), "report")}
                 >
                   Report
-                </button>
+                </button> */}
                 <button
                   className="px-3 py-1 bg-red-500 text-white rounded"
                   onClick={() => handleAction(String(req._id), "close")}
