@@ -21,6 +21,17 @@ import {
 } from "@/component/ui/select";
 import { Skeleton } from "@/component/ui/skeleton";
 import { generateReportPDF } from "@/utils/generateReportPDF";
+import MapPicker from "@/component/mappicker";
+import {
+  BuildingIcon,
+  CalendarIcon,
+  ClockIcon,
+  InfoIcon,
+  MapPinIcon,
+  Navigation,
+  NavigationIcon,
+  PlusCircleIcon,
+} from "lucide-react";
 
 interface IQuoteItem {
   item: string;
@@ -277,117 +288,170 @@ export default function CustomerDashboard() {
       </div>
 
       {showForm && (
-        <Card className="bg-white shadow-md">
+        <Card className="bg-white shadow-lg border-0 rounded-xl overflow-hidden">
           <CardHeader>
-            <CardTitle>Create New Service Request</CardTitle>
+            <CardTitle>
+              <PlusCircleIcon className="w-6 h-6" />
+              New Service Request
+            </CardTitle>
+            <p className="text-blue-100 font-light">
+              Fill in the details below to create a new service request
+            </p>
           </CardHeader>
+
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* --- YARD DETAILS --- */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-gray-700 text-lg">
-                  Yard Information
-                </h3>
-                <div className="space-y-2">
-                  <Label htmlFor="yardName">Yard Name</Label>
-                  <Input
-                    id="yardName"
-                    type="text"
-                    placeholder="Yard Name"
-                    value={form.yard.name}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setForm({
-                        ...form,
-                        yard: { ...form.yard, name: e.target.value },
-                      })
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="yardAddress">Yard Address</Label>
-                  <Input
-                    id="yardAddress"
-                    type="text"
-                    placeholder="Yard Address"
-                    value={form.yard.address}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setForm({
-                        ...form,
-                        yard: { ...form.yard, address: e.target.value },
-                      })
-                    }
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="longitude">Longitude</Label>
-                    <Input
-                      id="longitude"
-                      type="number"
-                      step="any"
-                      placeholder="Longitude"
-                      value={form.yard.location.coordinates[0]}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setForm({
-                          ...form,
-                          yard: {
-                            ...form.yard,
-                            location: {
-                              ...form.yard.location,
-                              coordinates: [
-                                parseFloat(e.target.value) || 0,
-                                form.yard.location.coordinates[1],
-                              ],
-                            },
-                          },
-                        })
-                      }
-                      required
-                    />
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {/* Progress Steps Indicator */}
+              <div className="flex items-center justify-center mb-2">
+                <div className="flex items-center">
+                  <div className="flex flex-col items-center">
+                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
+                      1
+                    </div>
+                    <span className="text-xs mt-1 text-blue-600 font-medium">
+                      Yard Info
+                    </span>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="latitude">Latitude</Label>
-                    <Input
-                      id="latitude"
-                      type="number"
-                      step="any"
-                      placeholder="Latitude"
-                      value={form.yard.location.coordinates[1]}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setForm({
-                          ...form,
-                          yard: {
-                            ...form.yard,
-                            location: {
-                              ...form.yard.location,
-                              coordinates: [
-                                form.yard.location.coordinates[0],
-                                parseFloat(e.target.value) || 0,
-                              ],
-                            },
-                          },
-                        })
-                      }
-                      required
-                    />
+                  <div className="w-16 h-0.5 bg-blue-200 mx-2"></div>
+                  <div className="flex flex-col items-center">
+                    <div className="w-8 h-8 rounded-full bg-blue-200 text-blue-600 flex items-center justify-center text-sm font-bold">
+                      2
+                    </div>
+                    <span className="text-xs mt-1 text-gray-500">
+                      Car Details
+                    </span>
+                  </div>
+                  <div className="w-16 h-0.5 bg-gray-200 mx-2"></div>
+                  <div className="flex flex-col items-center">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center text-sm font-bold">
+                      3
+                    </div>
+                    <span className="text-xs mt-1 text-gray-500">Schedule</span>
                   </div>
                 </div>
               </div>
 
-              {/* --- CAR DETAILS --- */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-gray-700 text-lg">
-                  Car Details
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
+              {/* Yard Information Section */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-2 h-6 bg-blue-600 rounded-full"></div>
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    Yard Information
+                  </h3>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="carMake">Make</Label>
+                    <Label
+                      htmlFor="yardName"
+                      className="text-sm font-medium text-gray-700 flex items-center gap-1"
+                    >
+                      <BuildingIcon className="w-4 h-4" />
+                      Yard Name
+                    </Label>
+                    <Input
+                      id="yardName"
+                      type="text"
+                      placeholder="e.g., Main Storage Yard"
+                      value={form.yard.name}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setForm({
+                          ...form,
+                          yard: { ...form.yard, name: e.target.value },
+                        })
+                      }
+                      className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="yardAddress"
+                      className="text-sm font-medium text-gray-700 flex items-center gap-1"
+                    >
+                      <MapPinIcon className="w-4 h-4" />
+                      Yard Address
+                    </Label>
+                    <Input
+                      id="yardAddress"
+                      type="text"
+                      placeholder="e.g., 123 Business Park, Nairobi"
+                      value={form.yard.address}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setForm({
+                          ...form,
+                          yard: { ...form.yard, address: e.target.value },
+                        })
+                      }
+                      className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                </div>
+<div>
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <Navigation className="h-4 w-4" />
+                Location
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Your GPS location helps us assign nearby jobs and improve
+                service efficiency.
+              </p>
+
+              
+            </div>
+                {/* Map Picker Section */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    <NavigationIcon className="w-4 h-4" />
+                    Yard Location
+                  </Label>
+                  <div className="border border-gray-300 rounded-lg overflow-hidden">
+                    <MapPicker
+                      value={form.yard.location.coordinates}
+                      onChange={(coords) =>
+                        setForm({
+                          ...form,
+                          yard: {
+                            ...form.yard,
+                            location: {
+                              ...form.yard.location,
+                              coordinates: coords,
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                  <p className="text-sm text-gray-500 flex items-center gap-1">
+                    <InfoIcon className="w-4 h-4" />
+                    Click on the map to pinpoint your yard location
+                  </p>
+                </div>
+              </div>
+
+              {/* Car Details Section */}
+              <div className="space-y-6 pt-6 border-t border-gray-200">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-2 h-6 bg-blue-600 rounded-full"></div>
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    Vehicle Details
+                  </h3>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="carMake"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Make
+                    </Label>
                     <Input
                       id="carMake"
                       type="text"
-                      placeholder="Make"
+                      placeholder="e.g., Toyota"
                       value={form.carDetails.make}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                         setForm({
@@ -398,15 +462,22 @@ export default function CustomerDashboard() {
                           },
                         })
                       }
+                      className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                       required
                     />
                   </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="carModel">Model</Label>
+                    <Label
+                      htmlFor="carModel"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Model
+                    </Label>
                     <Input
                       id="carModel"
                       type="text"
-                      placeholder="Model"
+                      placeholder="e.g., Land Cruiser"
                       value={form.carDetails.model}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                         setForm({
@@ -417,17 +488,24 @@ export default function CustomerDashboard() {
                           },
                         })
                       }
+                      className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                       required
                     />
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+
                   <div className="space-y-2">
-                    <Label htmlFor="carYear">Year</Label>
+                    <Label
+                      htmlFor="carYear"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Year
+                    </Label>
                     <Input
                       id="carYear"
                       type="number"
-                      placeholder="Year"
+                      placeholder="e.g., 2022"
+                      min="1990"
+                      max={new Date().getFullYear()}
                       value={form.carDetails.year}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                         setForm({
@@ -440,15 +518,22 @@ export default function CustomerDashboard() {
                           },
                         })
                       }
+                      className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                       required
                     />
                   </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="carRegNo">Registration Number</Label>
+                    <Label
+                      htmlFor="carRegNo"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Registration Number
+                    </Label>
                     <Input
                       id="carRegNo"
                       type="text"
-                      placeholder="Registration Number"
+                      placeholder="e.g., KCA 123A"
                       value={form.carDetails.regNo}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                         setForm({
@@ -459,12 +544,19 @@ export default function CustomerDashboard() {
                           },
                         })
                       }
+                      className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500 uppercase"
                       required
                     />
                   </div>
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="carType">Car Type</Label>
+                  <Label
+                    htmlFor="carType"
+                    className="text-sm font-medium text-gray-700"
+                  >
+                    Vehicle Type
+                  </Label>
                   <Select
                     value={form.carDetails.type}
                     onValueChange={(value) =>
@@ -475,27 +567,37 @@ export default function CustomerDashboard() {
                     }
                     required
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Car Type" />
+                    <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                      <SelectValue placeholder="Select vehicle type" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="sedan">Sedan</SelectItem>
                       <SelectItem value="suv">SUV</SelectItem>
                       <SelectItem value="truck">Truck</SelectItem>
-                      <SelectItem value="heavy">Heavy</SelectItem>
+                      <SelectItem value="heavy">Heavy Vehicle</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              {/* --- PREFERRED WINDOW --- */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-gray-700 text-lg">
-                  Preferred Service Window
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
+              {/* Service Window Section */}
+              <div className="space-y-6 pt-6 border-t border-gray-200">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-2 h-6 bg-blue-600 rounded-full"></div>
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    Service Schedule
+                  </h3>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="startTime">Start Time</Label>
+                    <Label
+                      htmlFor="startTime"
+                      className="text-sm font-medium text-gray-700 flex items-center gap-1"
+                    >
+                      <CalendarIcon className="w-4 h-4" />
+                      Preferred Start
+                    </Label>
                     <Input
                       id="startTime"
                       type="datetime-local"
@@ -509,11 +611,19 @@ export default function CustomerDashboard() {
                           },
                         })
                       }
+                      className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                       required
                     />
                   </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="endTime">End Time</Label>
+                    <Label
+                      htmlFor="endTime"
+                      className="text-sm font-medium text-gray-700 flex items-center gap-1"
+                    >
+                      <ClockIcon className="w-4 h-4" />
+                      Preferred End
+                    </Label>
                     <Input
                       id="endTime"
                       type="datetime-local"
@@ -527,18 +637,31 @@ export default function CustomerDashboard() {
                           },
                         })
                       }
+                      className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                       required
                     />
                   </div>
                 </div>
               </div>
 
-              <Button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700"
-              >
-                Submit Request
-              </Button>
+              {/* Form Actions */}
+              <div className="flex gap-4 pt-6 border-t border-gray-200">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowForm(false)}
+                  className="flex-1 h-12 border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 h-12 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold shadow-lg"
+                >
+                  <CheckCircleIcon className="w-5 h-5 mr-2" />
+                  Submit Request
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>

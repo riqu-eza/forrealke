@@ -76,7 +76,7 @@ export default function SignupPage() {
                 required
                 placeholder="Enter your full name"
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-lg border border-[#d6c9b8] focus:ring-2 focus:ring-[#3e4a2b] focus:border-[#3e4a2b] outline-none transition"
+                className="w-full px-4 py-3 rounded-lg border text-black border-[#d6c9b8] focus:ring-2 focus:ring-[#3e4a2b] focus:border-[#3e4a2b] outline-none transition"
               />
             </div>
 
@@ -92,7 +92,7 @@ export default function SignupPage() {
                 required
                 placeholder="Enter your email"
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-lg border border-[#d6c9b8] focus:ring-2 focus:ring-[#3e4a2b] focus:border-[#3e4a2b] outline-none transition"
+                className="w-full px-4 py-3 rounded-lg border text-black border-[#d6c9b8] focus:ring-2 focus:ring-[#3e4a2b] focus:border-[#3e4a2b] outline-none transition"
               />
             </div>
 
@@ -108,7 +108,7 @@ export default function SignupPage() {
                 required
                 placeholder="Create a password"
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-lg border border-[#d6c9b8] focus:ring-2 focus:ring-[#3e4a2b] focus:border-[#3e4a2b] outline-none transition"
+                className="w-full px-4 py-3 rounded-lg border text-black border-[#d6c9b8] focus:ring-2 focus:ring-[#3e4a2b] focus:border-[#3e4a2b] outline-none transition"
               />
               <p className="text-xs text-[#7a6a5a] mt-2">Use at least 8 characters with a mix of letters and numbers</p>
             </div>
@@ -118,7 +118,7 @@ export default function SignupPage() {
                 id="terms"
                 name="terms"
                 type="checkbox"
-                className="h-4 w-4 text-[#3e4a2b] focus:ring-[#3e4a2b] border-[#d6c9b8] rounded"
+                className="h-4 w-4 text-[#3e4a2b]  focus:ring-[#3e4a2b] border-[#d6c9b8] rounded"
                 required
               />
               <label htmlFor="terms" className="ml-2 block text-[#7a6a5a]">
