@@ -1,45 +1,43 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
-import { useState } from "react";
-import L from "leaflet";
+import "ol/ol.css";
+import { Map, View } from "ol";
+import TileLayer from "ol/layer/Tile";
+import OSM from "ol/source/OSM";
+import { fromLonLat, toLonLat } from "ol/proj";
+import { useEffect, useRef } from "react";
 
-interface MapPickerProps {
-  value: [number, number]; // [lng, lat]
+interface OLMapPickerProps {
+  value: [number, number];
   onChange: (coords: [number, number]) => void;
 }
 
-const markerIcon = L.icon({
-  iconUrl: "https://unpkg.com/leaflet@1.7/dist/images/marker-icon.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
+export default function OLMapPicker({ value, onChange }: OLMapPickerProps) {
+  const mapRef = useRef<HTMLDivElement>(null);
 
-export default function MapPicker({ value, onChange }: MapPickerProps) {
-  const [position, setPosition] = useState<[number, number]>(value);
+  useEffect(() => {
+    if (!mapRef.current) return;
 
-  function LocationMarker() {
-    useMapEvents({
-      click(e) {
-        const coords: [number, number] = [e.latlng.lng, e.latlng.lat];
-        setPosition(coords);
-        onChange(coords);
-      },
+    const map = new Map({
+      target: mapRef.current,
+      layers: [
+        new TileLayer({
+          source: new OSM(),
+        }),
+      ],
+      view: new View({
+        center: fromLonLat(value),
+        zoom: 13,
+      }),
     });
-    return position ? <Marker position={[position[1], position[0]]} icon={markerIcon} /> : null;
-  }
 
-  return (
-    <MapContainer
-      center={[value[1], value[0]]}
-      zoom={13}
-      style={{ height: "300px", width: "100%", borderRadius: "0.75rem" }}
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <LocationMarker />
-    </MapContainer>
-  );
+    map.on("click", (event) => {
+      const coords = toLonLat(event.coordinate) as [number, number];
+      onChange(coords);
+    });
+
+    return () => map.setTarget(undefined);
+  }, [value, onChange]);
+
+  return <div ref={mapRef} style={{ width: "100%", height: "300px", borderRadius: "0.75rem" }} />;
 }
