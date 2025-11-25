@@ -39,52 +39,59 @@ async function findEarliestSlot(
   return new Date(); // fallback: now
 }
 
-export async function assignJob(requestId: string, userId: string) {
+export async function assignJob(requestId: string) {
   const req = await CustomerRequest.findById(requestId);
   if (!req) throw new Error("Request not found");
 
-  // 1. Find candidate technicians
-  const candidates = await Technician.find({
-    active: true,
-    skills: req.carDetails.make,
-    location: {
-      $near: {
-        $geometry: req.yard.location,
-      },
-    },
-  });
+  // 1. Fetch ALL active techs
+  const allTechs = await Technician.find({ active: true });
 
-  if (!candidates.length) throw new Error("No technicians available nearby");
+  if (!allTechs.length)
+    throw new Error("No active technicians in the system");
 
-  // 2. Score each candidate
-  let best: any = null;
+  // 2. SOFT filter by skill
+  const skilledTechs = allTechs.filter(t =>
+    t.skills.map(s => s.toLowerCase())
+           .includes(req.carDetails.make.toLowerCase())
+  );
+
+  const candidates = skilledTechs.length ? skilledTechs : allTechs;
+
+  let best = null;
   let bestScore = Infinity;
 
   for (const tech of candidates) {
-    const distance = haversine(
-      tech.location.coordinates,
-      req.yard.location.coordinates
-    );
+    let distance = 9999;
+
+    // safe distance calculation
+    if (
+      tech.location?.coordinates?.length === 2 &&
+      !isNaN(tech.location.coordinates[0]) &&
+      !isNaN(tech.location.coordinates[1])
+    ) {
+      distance = haversine(
+        tech.location.coordinates,
+        req.yard.location.coordinates
+      );
+    }
 
     const nextAvailableSlot = await findEarliestSlot(
       tech,
       req.preferredWindow,
-      req.estimatedDurationMins + req.travelBufferMins
+      req.estimatedDurationMins
     );
 
-    const workloadScore = tech.maxDailyJobs
-      ? (tech.currentJobs || 0) / tech.maxDailyJobs
-      : 1;
-    const distanceNorm = distance / 15; // normalized 0–1
-    const earliestNorm = 0.5; // TODO: normalize relative to day
-    const workloadNorm = workloadScore;
-    const ratingNorm = tech.rating / 5;
+    const workload = tech.currentJobs && tech.maxDailyJobs
+      ? tech.currentJobs / tech.maxDailyJobs
+      : 0;
+
+    const rating = tech.rating ? tech.rating / 5 : 0;
 
     const score =
-      w1 * distanceNorm +
-      w2 * earliestNorm +
-      w3 * workloadNorm -
-      w4 * ratingNorm;
+      w1 * (distance / 15) +
+      w2 * 0.5 +
+      w3 * workload -
+      w4 * rating;
 
     if (score < bestScore) {
       bestScore = score;
@@ -92,9 +99,13 @@ export async function assignJob(requestId: string, userId: string) {
     }
   }
 
-  if (!best) throw new Error("No suitable technician found");
+  // 3. Always have a best candidate
+  if (!best) {
+    // fallback: technician with highest rating
+    const fallback = allTechs.sort((a, b) => b.rating - a.rating)[0];
+    best = { tech: fallback, nextAvailableSlot: new Date() };
+  }
 
-  // 3. Tentative schedule
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -105,12 +116,12 @@ export async function assignJob(requestId: string, userId: string) {
       best.nextAvailableSlot.getTime() + req.estimatedDurationMins * 60000
     );
     req.status = "assigned_pending";
+
     await req.save({ session });
 
     await session.commitTransaction();
     session.endSession();
 
-    // TODO: trigger notification to technician
     return req;
   } catch (err) {
     await session.abortTransaction();
@@ -118,3 +129,4 @@ export async function assignJob(requestId: string, userId: string) {
     throw err;
   }
 }
+

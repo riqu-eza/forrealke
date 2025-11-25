@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useUser } from "@/context/UserContext";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -19,30 +20,75 @@ export default function SignupPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
+   const { login } = useUser();
 
-    try {
-      const res = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+  
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsLoading(true);
+  setError("");
 
-      if (res.ok) {
-        router.push("/login");
-      } else {
-        const data = await res.json();
-        setError(data.message || "Signup failed");
-      }
-    } catch (err) {
-      setError("Something went wrong");
-    } finally {
-      setIsLoading(false);
+  try {
+    // 1. Create account
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setError(data.message || "Signup failed");
+      return;
     }
-  };
+
+    // 2. After successful signup → auto-login
+    const loginRes = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: formData.email,
+        password: formData.password,
+      }),
+    });
+
+    const loginData = await loginRes.json();
+
+    if (!loginRes.ok) {
+      router.push("/login"); // fallback
+      return;
+    }
+
+    // 3. Save auth to context
+    login(loginData.user, loginData.token);
+
+    // 4. Redirect based on role
+    switch (loginData.user.role) {
+      case "admin":
+        router.push("/dashboard/admin");
+        break;
+      case "manager":
+        router.push("/dashboard/manager");
+        break;
+      case "technician":
+        router.push("/dashboard/tech");
+        break;
+      case "accountant":
+        router.push("/dashboard/accountant");
+        break;
+      case "customer":
+      default:
+        router.push("/dashboard/customer");
+        break;
+    }
+
+  } catch (err) {
+    setError("Something went wrong");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen  flex items-center justify-center p-4">

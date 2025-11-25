@@ -33,31 +33,32 @@ export default function LoginPage() {
     });
 
     const data = await res.json();
+    console.log("Login response data:", data);
+ if (res.ok) {
+  login(data.user);
 
-    if (res.ok) {
-  // Save user + token in your auth context
-  login(data.user, data.token);
+  // slight delay to allow cookie to flush
+  await new Promise(r => setTimeout(r, 80));
 
-  // Check role and redirect accordingly
   switch (data.user.role) {
-    case "admin":
-      router.push("/dashboard/admin");
-      break;
     case "manager":
-      router.push("/dashboard/manager");
+      router.replace("/dashboard/manager");
       break;
     case "technician":
-      router.push("/dashboard/tech");
+      router.replace("/dashboard/tech");
       break;
-    case "accountant":
-      router.push("/dashboard/accountant");
+    case "admin":
+      router.replace("/dashboard/admin");
       break;
-    case "customer":
     default:
-      router.push("/dashboard/customer");
-      break;
+      router.replace("/dashboard/customer");
   }
+
+  return;
 }
+
+
+
  else {
       setError(data.message || "Login failed");
     }

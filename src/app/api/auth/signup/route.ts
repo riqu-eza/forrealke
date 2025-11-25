@@ -6,10 +6,8 @@ import { User } from "@/models/user";
 
 export async function POST(req: Request) {
   try {
-    console.log("📩 Incoming signup request...");
 
     await connectDB();
-    console.log("✅ Database connected");
 
     const body = await req.json();
     console.log("📦 Request body:", body);

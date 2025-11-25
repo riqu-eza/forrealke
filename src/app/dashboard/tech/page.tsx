@@ -167,17 +167,19 @@ export default function TechDashboard() {
   // 🔹 Skill management
   const handleAddSkill = async () => {
     if (!tech || !newSkill.trim()) return;
-    const updatedSkills = [...tech.skills, newSkill.trim()];
-
+  const updatedSkills = [...(tech.skills || []), newSkill.trim()];
     try {
       const res = await fetch("/api/technicians", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: user?._id,
-          updates: { skills: updatedSkills },
+           updates: {          // ✔️ MUST be wrapped inside updates
+          skills: updatedSkills,
+        },
         }),
       });
+          if (!res.ok) throw new Error("Failed to update skills");
       const updatedTech: Technician = await res.json();
       setTech(updatedTech);
       setNewSkill("");
@@ -461,7 +463,7 @@ export default function TechDashboard() {
                   onKeyPress={(e) => e.key === "Enter" && handleAddSkill()}
                 />
                 <Button onClick={handleAddSkill}>
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-4 w-4 text-blue" />
                 </Button>
               </div>
             </div>

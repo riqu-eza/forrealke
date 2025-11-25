@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     if (!tech) {
       tech = await Technician.create({
         userId,
-        location: { type: "Point", coordinates: [""] }, // ✅ default Nairobi coords
+        location: { type: "Point", coordinates: [36.8219, -1.2921] }, // ✅ default Nairobi coords
         skills: [],
         shift: [],
         weeklyAvailability: [
