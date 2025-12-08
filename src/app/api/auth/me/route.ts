@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextResponse, NextRequest } from "next/server";
 import jwt from "jsonwebtoken";
 import { connectDB } from "@/lib/db";
@@ -13,6 +14,7 @@ export async function GET() {
       return NextResponse.json({ user: null });
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
 
     await connectDB();
